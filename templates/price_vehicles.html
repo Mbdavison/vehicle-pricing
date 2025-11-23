@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Price Vehicles for Purchase</title>
+</head>
+<body>
+    <h1>Price Vehicles for Purchase</h1>
+
+    {% if message %}
+        <p><strong>{{ message }}</strong></p>
+    {% endif %}
+
+    <form action="/price-vehicles" method="post" enctype="multipart/form-data">
+        <h3>Pricing Parameters</h3>
+        <label>Margin (%):
+            <input type="number" step="0.1" name="margin" value="{{ margin }}" required>
+        </label>
+        <br><br>
+
+        <label>Expected Expenses ($):
+            <input type="number" step="0.01" name="expenses" value="{{ expenses or 0 }}" required>
+        </label>
+        <br><br>
+
+        <h3>Comp Filters (optional)</h3>
+        <p>Limit comps by state, company, condition, and mileage.</p>
+
+        <label>Comp State:
+            <input type="text" name="comp_state" value="{{ comp_state }}" placeholder="e.g. CO">
+        </label>
+        <br><br>
+
+        <label>Comp Company:
+            <input type="text" name="comp_company" value="{{ comp_company }}" placeholder="Seller / client name">
+        </label>
+        <br><br>
+
+        <label>
+            <input type="checkbox" name="comp_runs_drives_only" {% if comp_runs_drives_only %}checked{% endif %}>
+            Only use comps that RUN & DRIVE (runs and drives contain "YES")
+        </label>
+        <br><br>
+
+        <label>
+            <input type="checkbox" name="comp_require_keys" {% if comp_require_keys %}checked{% endif %}>
+            Only use comps with KEYS (has_keys contains "YES")
+        </label>
+        <br><br>
+
+        <label>
+            <input type="checkbox" name="comp_exclude_parts_only" {% if comp_exclude_parts_only %}checked{% endif %}>
+            Exclude "Parts Only" title status
+        </label>
+        <br><br>
+
+        <label>
+            <input type="checkbox" name="use_mileage_range" {% if use_mileage_range %}checked{% endif %}>
+            Use mileage range for comps
+        </label>
+        <br><br>
+
+        <label>Mileage range (+/- miles):
+            <input type="number" name="mileage_range" value="{{ mileage_range }}">
+        </label>
+        <br><br>
+
+        <h3>Batch Pricing (Upload CSV/Excel)</h3>
+        <p>File should contain at least VIN, Year, Make, Model columns.
+           If a <strong>mileage</strong> column is present and mileage range is enabled,
+           comps will be limited to subject mileage ± range.</p>
+        <input type="file" name="file" accept=".csv,.xls,.xlsx">
+        <br><br>
+
+        <h3>Single Vehicle (optional)</h3>
+        <p>You can either upload a file OR enter a single year/make/model.</p>
+
+        <label>Year:
+            <input type="number" name="single_year">
+        </label>
+        <br><br>
+
+        <label>Make:
+            <input type="text" name="single_make">
+        </label>
+        <br><br>
+
+        <label>Model:
+            <input type="text" name="single_model">
+        </label>
+        <br><br>
+
+        <label>Mileage (optional, for mileage-based comps):
+            <input type="number" name="single_mileage">
+        </label>
+        <br><br>
+
+        {% if results %}
+            <h3>Results</h3>
+            <table border="1" cellpadding="5" cellspacing="0">
+                <tr>
+                    <th>VIN</th>
+                    <th>Year</th>
+                    <th>Make</th>
+                    <th>Model</th>
+                    <th>Avg Sale Price</th>
+                    <th>Comp Count</th>
+                    <th>Recommended Price</th>
+                </tr>
+                {% for r in results %}
+                <tr>
+                    <td>{{ r.vin }}</td>
+                    <td>{{ r.year }}</td>
+                    <td>{{ r.make }}</td>
+                    <td>{{ r.model }}</td>
+                    <td>{{ r.avg_sale_price }}</td>
+                    <td>{{ r.comp_count }}</td>
+                    <td>{{ r.recommended_price }}</td>
+                </tr>
+
+                <!-- Hidden fields so we can recalc or export without re-uploading -->
+                <input type="hidden" name="vin_list" value="{{ r.vin }}">
+                <input type="hidden" name="year_list" value="{{ r.year }}">
+                <input type="hidden" name="make_list" value="{{ r.make }}">
+                <input type="hidden" name="model_list" value="{{ r.model }}">
+                <input type="hidden" name="avg_list" value="{{ r.avg_sale_price }}">
+                <input type="hidden" name="comp_count_list" value="{{ r.comp_count }}">
+                {% endfor %}
+            </table>
+            <br>
+        {% endif %}
+
+        <!-- Two actions: calculate vs export -->
+        <button type="submit" name="action" value="calculate">
+            Calculate Recommended Prices
+        </button>
+        <button type="submit" name="action" value="export">
+            Export Results to CSV
+        </button>
+    </form>
+
+    <p><a href="/">Back to Home</a></p>
+</body>
+</html>
+

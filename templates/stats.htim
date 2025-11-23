@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Historical Stats</title>
+</head>
+<body>
+    <h1>View Historical Stats</h1>
+
+    <form action="/stats" method="post">
+        <label>Year:
+            <input type="number" name="year" required>
+        </label>
+        <br><br>
+
+        <label>Make:
+            <input type="text" name="make" required>
+        </label>
+        <br><br>
+
+        <label>Model:
+            <input type="text" name="model" required>
+        </label>
+        <br><br>
+
+        <h3>Optional Filters</h3>
+
+        <label>State (optional):
+            <input type="text" name="state" placeholder="e.g. CO">
+        </label>
+        <br><br>
+
+        <label>Company (optional):
+            <input type="text" name="company" placeholder="Seller / client name">
+        </label>
+        <br><br>
+
+        <button type="submit">Get Stats</button>
+    </form>
+
+    <hr>
+
+    {% if message %}
+        <p><strong>{{ message }}</strong></p>
+    {% endif %}
+
+    {% if stats %}
+        <h2>Results for {{ stats.year }} {{ stats.make }} {{ stats.model }}</h2>
+        <ul>
+            <li>Average Sale Price: {{ stats.avg_price }}</li>
+            <li>Lowest Sale Price: {{ stats.min_price }}</li>
+            <li>Highest Sale Price: {{ stats.max_price }}</li>
+            <li>Number of Sales: {{ stats.count }}</li>
+        </ul>
+    {% endif %}
+
+    <p><a href="/">Back to Home</a></p>
+</body>
+</html>
+

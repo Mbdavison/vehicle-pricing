@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload History</title>
+</head>
+<body>
+    <h1>Upload History</h1>
+
+    <form action="/history" method="post">
+        <h3>Filters</h3>
+
+        <label>Year:
+            <input type="text" name="year" value="{{ year }}">
+        </label>
+        <br><br>
+
+        <label>Make:
+            <input type="text" name="make" value="{{ make }}">
+        </label>
+        <br><br>
+
+        <label>Model:
+            <input type="text" name="model" value="{{ model }}">
+        </label>
+        <br><br>
+
+        <label>State:
+            <input type="text" name="state" value="{{ state }}" placeholder="e.g. CO">
+        </label>
+        <br><br>
+
+        <label>Company:
+            <input type="text" name="company" value="{{ company }}" placeholder="Seller / client name">
+        </label>
+        <br><br>
+
+        <h3>Sort</h3>
+
+        <label>Sort by:
+            <select name="sort_by">
+                <option value="sale_date" {% if sort_by == "sale_date" %}selected{% endif %}>Sale Date</option>
+                <option value="sale_price" {% if sort_by == "sale_price" %}selected{% endif %}>Sale Price</option>
+                <option value="year" {% if sort_by == "year" %}selected{% endif %}>Year</option>
+                <option value="state" {% if sort_by == "state" %}selected{% endif %}>State</option>
+                <option value="company" {% if sort_by == "company" %}selected{% endif %}>Company</option>
+            </select>
+        </label>
+        <br><br>
+
+        <label>Direction:
+            <select name="sort_dir">
+                <option value="asc" {% if sort_dir == "asc" %}selected{% endif %}>Ascending</option>
+                <option value="desc" {% if sort_dir == "desc" %}selected{% endif %}>Descending</option>
+            </select>
+        </label>
+        <br><br>
+
+        <button type="submit">Apply Filters</button>
+    </form>
+
+    <hr>
+
+    {% if message %}
+        <p><strong>{{ message }}</strong></p>
+    {% endif %}
+
+    {% if rows %}
+        <h3>Showing up to 200 records</h3>
+        <table border="1" cellpadding="5" cellspacing="0">
+            <tr>
+                <th>VIN</th>
+                <th>Year</th>
+                <th>Make</th>
+                <th>Model</th>
+                <th>Sale Price</th>
+                <th>Sale Date</th>
+                <th>State</th>
+                <th>Company</th>
+                <th>Title Status</th>
+                <th>Keys</th>
+                <th>Runs</th>
+                <th>Drives</th>
+                <th>Source File</th>
+            </tr>
+            {% for r in rows %}
+            <tr>
+                <td>{{ r.vin }}</td>
+                <td>{{ r.year }}</td>
+                <td>{{ r.make }}</td>
+                <td>{{ r.model }}</td>
+                <td>{{ r.sale_price }}</td>
+                <td>{{ r.sale_date }}</td>
+                <td>{{ r.state }}</td>
+                <td>{{ r.company }}</td>
+                <td>{{ r.title_status }}</td>
+                <td>{{ r.has_keys }}</td>
+                <td>{{ r.runs }}</td>
+                <td>{{ r.drives }}</td>
+                <td>{{ r.source_file }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+
+    <p><a href="/">Back to Home</a></p>
+</body>
+</html>
+
