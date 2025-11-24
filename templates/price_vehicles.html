@@ -2,143 +2,148 @@
 <html>
 <head>
     <title>Price Vehicles for Purchase</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; }
+        h1 { margin-bottom: 20px; }
+        label { display: inline-block; width: 170px; margin-bottom: 8px; }
+        input, select { padding: 6px; width: 230px; }
+        button {
+            padding: 8px 14px;
+            background: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        button:hover { background: #0d47a1; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 25px;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        th { background: #f2f2f2; }
+        a { text-decoration: none; color: #1976d2; }
+    </style>
 </head>
 <body>
+
     <h1>Price Vehicles for Purchase</h1>
 
-    {% if message %}
-        <p><strong>{{ message }}</strong></p>
+    <a href="/">⬅ Back to Home</a><br><br>
+
+    {% if error %}
+        <p style="color:red; font-weight:bold;">{{ error }}</p>
     {% endif %}
 
-    <form action="/price-vehicles" method="post" enctype="multipart/form-data">
-        <h3>Pricing Parameters</h3>
-        <label>Margin (%):
-            <input type="number" step="0.1" name="margin" value="{{ margin }}" required>
-        </label>
-        <br><br>
+    <form method="post" enctype="multipart/form-data">
 
-        <label>Expected Expenses ($):
-            <input type="number" step="0.01" name="expenses" value="{{ expenses or 0 }}" required>
-        </label>
-        <br><br>
+        <h2>Upload CSV or Excel File</h2>
+        <input type="file" name="file" accept=".csv,.xlsx,.xls">
 
-        <h3>Comp Filters (optional)</h3>
-        <p>Limit comps by state, company, condition, and mileage.</p>
+        <h2>Or Enter Single Vehicle</h2>
+        <label>Year:</label>
+        <input type="number" name="manual_year" min="1900" max="2100"><br>
 
-        <label>Comp State:
-            <input type="text" name="comp_state" value="{{ comp_state }}" placeholder="e.g. CO">
-        </label>
-        <br><br>
+        <label>Make:</label>
+        <input type="text" name="manual_make"><br>
 
-        <label>Comp Company:
-            <input type="text" name="comp_company" value="{{ comp_company }}" placeholder="Seller / client name">
-        </label>
-        <br><br>
+        <label>Model:</label>
+        <input type="text" name="manual_model"><br>
 
-        <label>
-            <input type="checkbox" name="comp_runs_drives_only" {% if comp_runs_drives_only %}checked{% endif %}>
-            Only use comps that RUN & DRIVE (runs and drives contain "YES")
-        </label>
-        <br><br>
+        <label>Mileage:</label>
+        <input type="number" name="manual_mileage" min="0"><br><br>
 
-        <label>
-            <input type="checkbox" name="comp_require_keys" {% if comp_require_keys %}checked{% endif %}>
-            Only use comps with KEYS (has_keys contains "YES")
-        </label>
-        <br><br>
+        <h2>Pricing Controls</h2>
+        <label>Required Margin (%):</label>
+        <input type="number" name="margin" step="0.1" value="{{ margin }}"><br>
 
-        <label>
-            <input type="checkbox" name="comp_exclude_parts_only" {% if comp_exclude_parts_only %}checked{% endif %}>
-            Exclude "Parts Only" title status
-        </label>
-        <br><br>
+        <label>Expected Expenses ($):</label>
+        <input type="number" name="expenses" step="0.01" value="{{ expenses }}"><br>
 
-        <label>
-            <input type="checkbox" name="use_mileage_range" {% if use_mileage_range %}checked{% endif %}>
-            Use mileage range for comps
-        </label>
-        <br><br>
+        <h2>Optional Comp Filters</h2>
+        <label>Filter by State:</label>
+        <input type="text" name="state" value="{{ state }}"><br>
 
-        <label>Mileage range (+/- miles):
-            <input type="number" name="mileage_range" value="{{ mileage_range }}">
-        </label>
-        <br><br>
+        <label>Filter by Company:</label>
+        <input type="text" name="company" value="{{ company }}"><br>
 
-        <h3>Batch Pricing (Upload CSV/Excel)</h3>
-        <p>File should contain at least VIN, Year, Make, Model columns.
-           If a <strong>mileage</strong> column is present and mileage range is enabled,
-           comps will be limited to subject mileage ± range.</p>
-        <input type="file" name="file" accept=".csv,.xls,.xlsx">
-        <br><br>
+        <label>Min Mileage:</label>
+        <input type="number" name="min_mileage" value="{{ min_mileage }}"><br>
 
-        <h3>Single Vehicle (optional)</h3>
-        <p>You can either upload a file OR enter a single year/make/model.</p>
+        <label>Max Mileage:</label>
+        <input type="number" name="max_mileage" value="{{ max_mileage }}"><br>
 
-        <label>Year:
-            <input type="number" name="single_year">
-        </label>
-        <br><br>
+        <button type="submit">Calculate Recommended Prices</button>
+    </form>
 
-        <label>Make:
-            <input type="text" name="single_make">
-        </label>
-        <br><br>
+    {% if results %}
+        <h2>Pricing Results</h2>
 
-        <label>Model:
-            <input type="text" name="single_model">
-        </label>
-        <br><br>
+        <form method="get" action="/export-pricing-csv">
+            <button type="submit">Download CSV</button>
+        </form>
 
-        <label>Mileage (optional, for mileage-based comps):
-            <input type="number" name="single_mileage">
-        </label>
-        <br><br>
-
-        {% if results %}
-            <h3>Results</h3>
-            <table border="1" cellpadding="5" cellspacing="0">
+        <table>
+            <thead>
                 <tr>
                     <th>VIN</th>
                     <th>Year</th>
                     <th>Make</th>
                     <th>Model</th>
-                    <th>Avg Sale Price</th>
-                    <th>Comp Count</th>
-                    <th>Recommended Price</th>
+                    <th>Mileage</th>
+                    <th>Average Sale Price</th>
+                    <th>High Sale Price</th>
+                    <th>Low Sale Price</th>
+                    <th>Target Price</th>
+                    <th>Max Offer</th>
                 </tr>
-                {% for r in results %}
+            </thead>
+
+            <tbody>
+                {% for row in results %}
                 <tr>
-                    <td>{{ r.vin }}</td>
-                    <td>{{ r.year }}</td>
-                    <td>{{ r.make }}</td>
-                    <td>{{ r.model }}</td>
-                    <td>{{ r.avg_sale_price }}</td>
-                    <td>{{ r.comp_count }}</td>
-                    <td>{{ r.recommended_price }}</td>
+                    <td>{{ row.vin }}</td>
+                    <td>{{ row.year }}</td>
+                    <td>{{ row.make }}</td>
+                    <td>{{ row.model }}</td>
+                    <td>{{ row.mileage }}</td>
+                    <td>
+                        {% if row.avg_price %}
+                            ${{ '{:,.0f}'.format(row.avg_price) }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.high_price %}
+                            ${{ '{:,.0f}'.format(row.high_price) }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.low_price %}
+                            ${{ '{:,.0f}'.format(row.low_price) }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.target_price %}
+                            ${{ '{:,.0f}'.format(row.target_price) }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.max_offer %}
+                            ${{ '{:,.0f}'.format(row.max_offer) }}
+                        {% endif %}
+                    </td>
                 </tr>
-
-                <!-- Hidden fields so we can recalc or export without re-uploading -->
-                <input type="hidden" name="vin_list" value="{{ r.vin }}">
-                <input type="hidden" name="year_list" value="{{ r.year }}">
-                <input type="hidden" name="make_list" value="{{ r.make }}">
-                <input type="hidden" name="model_list" value="{{ r.model }}">
-                <input type="hidden" name="avg_list" value="{{ r.avg_sale_price }}">
-                <input type="hidden" name="comp_count_list" value="{{ r.comp_count }}">
                 {% endfor %}
-            </table>
-            <br>
-        {% endif %}
+            </tbody>
+        </table>
+    {% endif %}
 
-        <!-- Two actions: calculate vs export -->
-        <button type="submit" name="action" value="calculate">
-            Calculate Recommended Prices
-        </button>
-        <button type="submit" name="action" value="export">
-            Export Results to CSV
-        </button>
-    </form>
-
-    <p><a href="/">Back to Home</a></p>
 </body>
 </html>
 
