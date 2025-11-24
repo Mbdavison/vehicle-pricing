@@ -11,13 +11,17 @@ import io
 import os
 import csv
 
+app = FastAPI()
+
+@app.on_event("startup")
+def startup_event():
+    Base.metadata.create_all(bind=engine)
+
 from database import SessionLocal, engine, Base
 import models
 
 # Create DB tables if they don't exist
-Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
 
 # Jinja2 templates directory
 templates = Jinja2Templates(directory="templates")
