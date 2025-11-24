@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vehicle Pricing Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; }
+        h1 { margin-bottom: 10px; }
+        .stats { margin: 20px 0; }
+        .stats div { margin: 4px 0; }
+        a.button {
+            display: inline-block;
+            margin: 6px 8px 6px 0;
+            padding: 8px 14px;
+            background: #1976d2;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+        a.button:hover { background: #0d47a1; }
+    </style>
+</head>
+<body>
+
+    <h1>Vehicle Pricing Tool</h1>
+
+    <div class="stats">
+        <div><strong>Total Vehicles in DB:</strong> {{ vehicle_count }}</div>
+        <div><strong>Distinct Years:</strong> {{ year_count }}</div>
+        <div><strong>Distinct Makes:</strong> {{ make_count }}</div>
+        <div><strong>Distinct Models:</strong> {{ model_count }}</div>
+    </div>
+
+    <h2>Actions</h2>
+
+    <a class="button" href="/upload-history">Upload Historical Data</a>
+    <a class="button" href="/history">View History</a>
+    <a class="button" href="/stats">View Historical Stats</a>
+    <a class="button" href="/price-vehicles">Price Vehicles for Purchase</a>
+
+</body>
+</html>
+
