@@ -441,19 +441,26 @@ async def price_vehicles(
     file: UploadFile | None = File(None),
     margin: float = Form(20.0),
     expenses: float = Form(0.0),
-    # Optional filters for comps:
+    # Optional filters for comps (strings are fine)
     state: str | None = Form(None),
     company: str | None = Form(None),
-    min_mileage: int | None = Form(None),
-    max_mileage: int | None = Form(None),
+    min_mileage: str | None = Form(None),
+    max_mileage: str | None = Form(None),
     # Optional manual single vehicle:
     manual_year: int | None = Form(None),
     manual_make: str | None = Form(None),
     manual_model: str | None = Form(None),
-    manual_mileage: int | None = Form(None),
+    manual_mileage: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     global last_pricing_results, last_pricing_input_rows
+
+    # Convert mileage inputs from strings to ints (or None if blank)
+    min_mileage_val = clean_int(min_mileage) if min_mileage not in (None, "") else None
+    max_mileage_val = clean_int(max_mileage) if max_mileage not in (None, "") else None
+    manual_mileage_val = (
+        clean_int(manual_mileage) if manual_mileage not in (None, "") else None
+    )
 
     purchase_rows: list[dict] = []
 
@@ -516,7 +523,7 @@ async def price_vehicles(
                 "year": manual_year,
                 "make": manual_make.strip(),
                 "model": manual_model.strip(),
-                "mileage": manual_mileage,
+                "mileage": manual_mileage_val,
             }
         )
         last_pricing_input_rows = purchase_rows
@@ -544,10 +551,10 @@ async def price_vehicles(
             query = query.filter(Vehicle.state == state)
         if company:
             query = query.filter(Vehicle.company == company)
-        if min_mileage is not None:
-            query = query.filter(Vehicle.mileage >= min_mileage)
-        if max_mileage is not None:
-            query = query.filter(Vehicle.mileage <= max_mileage)
+        if min_mileage_val is not None:
+            query = query.filter(Vehicle.mileage >= min_mileage_val)
+        if max_mileage_val is not None:
+            query = query.filter(Vehicle.mileage <= max_mileage_val)
 
         comps = query.all()
 
