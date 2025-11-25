@@ -453,7 +453,16 @@ async def price_vehicles(
     manual_mileage: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
+    """
+    Price vehicles based on historical comps in the Vehicle table.
+    - Can take a file of vehicles OR a single manually-entered vehicle.
+    - If neither is provided, re-uses the last uploaded/entered vehicles.
+    """
     global last_pricing_results, last_pricing_input_rows
+
+    # Normalize text filters (strip whitespace, treat empty as None)
+    state = state.strip() or None if state else None
+    company = company.strip() or None if company else None
 
     # Convert mileage inputs from strings to ints (or None if blank)
     min_mileage_val = clean_int(min_mileage) if min_mileage not in (None, "") else None
@@ -464,7 +473,9 @@ async def price_vehicles(
 
     purchase_rows: list[dict] = []
 
-    # If new file uploaded, parse it and replace last input
+    # ------------------------------------------------------------------
+    # 1) If a new file is uploaded, parse it and REPLACE last input rows
+    # ------------------------------------------------------------------
     if file and file.filename:
         content = await file.read()
         try:
@@ -499,8 +510,8 @@ async def price_vehicles(
                 row.get("Mileage") or row.get("mileage") or row.get("Odometer")
             )
 
+            # Require year/make/model to identify a vehicle
             if not (year and make and model):
-                # skip rows with missing key identity
                 continue
 
             purchase_rows.append(
@@ -515,7 +526,9 @@ async def price_vehicles(
 
         last_pricing_input_rows = purchase_rows
 
-    # If no file, but manual vehicle fields provided, build a single purchase row
+    # ------------------------------------------------------------------
+    # 2) No file, but manual single vehicle was entered
+    # ------------------------------------------------------------------
     elif manual_year and manual_make and manual_model:
         purchase_rows.append(
             {
@@ -528,10 +541,32 @@ async def price_vehicles(
         )
         last_pricing_input_rows = purchase_rows
 
-    # If neither new file nor manual, reuse last input (to allow recalc without reupload)
+    # ------------------------------------------------------------------
+    # 3) Neither file nor manual input: re-use last input rows (recalc)
+    # ------------------------------------------------------------------
     else:
-        purchase_rows = last_pricing_input_rows
+        purchase_rows = last_pricing_input_rows or []
 
+    # If after all of that we still have nothing to price, show an error
+    if not purchase_rows:
+        return templates.TemplateResponse(
+            "price_vehicles.html",
+            {
+                "request": request,
+                "results": None,
+                "margin": margin,
+                "expenses": expenses,
+                "state": state,
+                "company": company,
+                "min_mileage": min_mileage,
+                "max_mileage": max_mileage,
+                "error": "No vehicles to price. Upload a file or enter a vehicle manually.",
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # Build pricing results from historical comps
+    # ------------------------------------------------------------------
     results: list[dict] = []
 
     for row in purchase_rows:
@@ -540,10 +575,12 @@ async def price_vehicles(
         model = row["model"]
         mileage = row["mileage"]
 
+        # Base query: year + make + model
+        # Use ILIKE with wildcards for more flexible matching
         query = db.query(Vehicle).filter(
             Vehicle.year == year,
-            Vehicle.make.ilike(make),
-            Vehicle.model.ilike(model),
+            Vehicle.make.ilike(f"%{make}%"),
+            Vehicle.model.ilike(f"%{model}%"),
         )
 
         # Optional filters on comps
