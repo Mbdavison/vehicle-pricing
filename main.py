@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, Response
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy import func
 import pandas as pd
 import io
 import csv
@@ -208,7 +208,6 @@ async def upload_history(
                 if pstatus:
                     title_status = pstatus
 
-            # If still nothing for title_status, maybe Title has 'Parts Only' etc.
             if not title_status and title_val:
                 t_lower = str(title_val).lower()
                 if "parts" in t_lower:
@@ -229,19 +228,19 @@ async def upload_history(
 
             # Key/run/drive as text (not True/False)
             has_keys = row.get("Keys") or row.get("Key") or row.get("keys")
-            if pd.isna(has_keys) if hasattr(pd, "isna") else False:
+            if pd.isna(has_keys):
                 has_keys = None
             if has_keys is not None:
                 has_keys = str(has_keys).strip()
 
             runs = row.get("Run") or row.get("Runs") or row.get("run")
-            if hasattr(pd, "isna") and pd.isna(runs):
+            if pd.isna(runs):
                 runs = None
             if runs is not None:
                 runs = str(runs).strip()
 
             drives = row.get("Drive") or row.get("Drives") or row.get("drive")
-            if hasattr(pd, "isna") and pd.isna(drives):
+            if pd.isna(drives):
                 drives = None
             if drives is not None:
                 drives = str(drives).strip()
@@ -253,7 +252,7 @@ async def upload_history(
                 or row.get("Location State")
                 or row.get("Pickup State")
             )
-            if hasattr(pd, "isna") and pd.isna(row_state):
+            if pd.isna(row_state):
                 row_state = None
             if row_state is not None:
                 row_state = str(row_state).strip()
@@ -266,7 +265,7 @@ async def upload_history(
                 or row.get("Seller Name")
                 or row.get("Seller Company")
             )
-            if hasattr(pd, "isna") and pd.isna(row_company):
+            if pd.isna(row_company):
                 row_company = None
             if row_company is not None:
                 row_company = str(row_company).strip()
@@ -347,7 +346,54 @@ def view_history(
     )
 
 
-# ---------- Historical stats ----------
+# ---------- Shared stats logic ----------
+
+def build_stats(
+    db: Session,
+    year: int | None,
+    make: str | None,
+    model: str | None,
+    state: str | None,
+    company: str | None,
+    min_mileage_val: int | None,
+    max_mileage_val: int | None,
+):
+    stats = None
+    vehicles = []
+
+    if year or make or model or state or company or min_mileage_val is not None or max_mileage_val is not None:
+        query = db.query(Vehicle)
+
+        if year:
+            query = query.filter(Vehicle.year == year)
+        if make:
+            query = query.filter(Vehicle.make.ilike(make.strip()))
+        if model:
+            query = query.filter(Vehicle.model.ilike(model.strip()))
+        if state:
+            query = query.filter(Vehicle.state == state)
+        if company:
+            query = query.filter(Vehicle.company == company)
+        if min_mileage_val is not None:
+            query = query.filter(Vehicle.mileage >= min_mileage_val)
+        if max_mileage_val is not None:
+            query = query.filter(Vehicle.mileage <= max_mileage_val)
+
+        vehicles = query.all()
+        if vehicles:
+            prices = [v.sale_price for v in vehicles if v.sale_price is not None]
+            if prices:
+                stats = {
+                    "count": len(prices),
+                    "avg_price": sum(prices) / len(prices),
+                    "high_price": max(prices),
+                    "low_price": min(prices),
+                }
+
+    return stats, vehicles
+
+
+# ---------- Historical stats (GET via query params) ----------
 
 @app.get("/stats", response_class=HTMLResponse)
 def stats_page(
@@ -361,39 +407,17 @@ def stats_page(
     max_mileage: int | None = None,
     db: Session = Depends(get_db),
 ):
-    stats = None
-    vehicles = []
+    stats, vehicles = build_stats(
+        db=db,
+        year=year,
+        make=make,
+        model=model,
+        state=state,
+        company=company,
+        min_mileage_val=min_mileage,
+        max_mileage_val=max_mileage,
+    )
 
-    if year or make or model or state or company or min_mileage or max_mileage:
-        query = db.query(Vehicle)
-
-        if year:
-            query = query.filter(Vehicle.year == year)
-        if make:
-            query = query.filter(Vehicle.make.ilike(make.strip()))
-        if model:
-            query = query.filter(Vehicle.model.ilike(model.strip()))
-        if state:
-            query = query.filter(Vehicle.state == state)
-        if company:
-            query = query.filter(Vehicle.company == company)
-        if min_mileage is not None:
-            query = query.filter(Vehicle.mileage >= min_mileage)
-        if max_mileage is not None:
-            query = query.filter(Vehicle.mileage <= max_mileage)
-
-        vehicles = query.all()
-        if vehicles:
-            prices = [v.sale_price for v in vehicles if v.sale_price is not None]
-            if prices:
-                stats = {
-                    "count": len(prices),
-                    "avg_price": sum(prices) / len(prices),
-                    "high_price": max(prices),
-                    "low_price": min(prices),
-                }
-
-    # Distinct states/companies for filters
     states = [s[0] for s in db.query(Vehicle.state).distinct().all() if s[0]]
     companies = [c[0] for c in db.query(Vehicle.company).distinct().all() if c[0]]
 
@@ -416,6 +440,63 @@ def stats_page(
     )
 
 
+# ---------- Historical stats (POST from HTML form) ----------
+
+@app.post("/stats", response_class=HTMLResponse)
+async def stats_page_post(
+    request: Request,
+    year: str | None = Form(None),
+    make: str | None = Form(None),
+    model: str | None = Form(None),
+    state: str | None = Form(None),
+    company: str | None = Form(None),
+    min_mileage: str | None = Form(None),
+    max_mileage: str | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    # Convert form strings to proper types
+    year_val = clean_int(year) if year not in (None, "") else None
+    min_mileage_val = clean_int(min_mileage) if min_mileage not in (None, "") else None
+    max_mileage_val = clean_int(max_mileage) if max_mileage not in (None, "") else None
+
+    make_val = make.strip() if make else None
+    model_val = model.strip() if model else None
+    state_val = state.strip() if state else None
+    company_val = company.strip() if company else None
+
+    stats, vehicles = build_stats(
+        db=db,
+        year=year_val,
+        make=make_val,
+        model=model_val,
+        state=state_val,
+        company=company_val,
+        min_mileage_val=min_mileage_val,
+        max_mileage_val=max_mileage_val,
+    )
+
+    states = [s[0] for s in db.query(Vehicle.state).distinct().all() if s[0]]
+    companies = [c[0] for c in db.query(Vehicle.company).distinct().all() if c[0]]
+
+    return templates.TemplateResponse(
+        "stats.html",
+        {
+            "request": request,
+            "stats": stats,
+            "vehicles": vehicles,
+            "states": states,
+            "companies": companies,
+            "year": year_val,
+            "make": make_val,
+            "model": model_val,
+            "selected_state": state_val,
+            "selected_company": company_val,
+            "min_mileage": min_mileage_val,
+            "max_mileage": max_mileage_val,
+        },
+    )
+
+
 # ---------- Price vehicles for purchase ----------
 
 @app.get("/price-vehicles", response_class=HTMLResponse)
@@ -431,6 +512,7 @@ def price_vehicles_form(request: Request):
             "company": None,
             "min_mileage": None,
             "max_mileage": None,
+            "error": None,
         },
     )
 
@@ -576,7 +658,6 @@ async def price_vehicles(
         mileage = row["mileage"]
 
         # Base query: year + make + model
-        # Use ILIKE with wildcards for more flexible matching
         query = db.query(Vehicle).filter(
             Vehicle.year == year,
             Vehicle.make.ilike(f"%{make}%"),
