@@ -205,7 +205,9 @@ async def upload_history(
     company: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
+    # -------------------------------------------------------
     # GET: just show the form
+    # -------------------------------------------------------
     if request.method == "GET":
         return templates.TemplateResponse(
             "upload_history.html",
@@ -216,7 +218,9 @@ async def upload_history(
             },
         )
 
-    # POST: must have a file
+    # -------------------------------------------------------
+    # POST: process upload
+    # -------------------------------------------------------
     if not file or not file.filename:
         return templates.TemplateResponse(
             "upload_history.html",
@@ -251,9 +255,11 @@ async def upload_history(
 
     for _, row in df.iterrows():
         try:
-            vin = str(row.get("VIN") or row.get("Vin") or row.get("vin") or "").strip()
-            if not vin:
-                # VIN is mandatory, skip this row
+            vin_raw = row.get("VIN") or row.get("Vin") or row.get("vin")
+            vin = str(vin_raw).strip() if vin_raw is not None else ""
+
+            # Skip rows with missing or bogus VIN (NaN, blank, etc.)
+            if not vin or vin.lower() == "nan":
                 errors += 1
                 if first_error is None:
                     first_error = "Missing VIN"
@@ -288,6 +294,13 @@ async def upload_history(
                 elif "title" in t_lower:
                     title_status = "Title"
 
+            # Enforce YEAR present (DB has NOT NULL constraint)
+            if year is None:
+                errors += 1
+                if first_error is None:
+                    first_error = f"Missing or invalid year for VIN {vin}"
+                continue
+
             sale_price = clean_float(
                 row.get("Price")
                 or row.get("Sale Price")
@@ -299,7 +312,7 @@ async def upload_history(
                 row.get("Mileage") or row.get("mileage") or row.get("Odometer")
             )
 
-            # Key/run/drive as text (not True/False)
+            # Key/run/drive as text
             has_keys = row.get("Keys") or row.get("Key") or row.get("keys")
             if hasattr(pd, "isna") and pd.isna(has_keys):
                 has_keys = None
@@ -345,13 +358,6 @@ async def upload_history(
             if not row_company and company:
                 row_company = company.strip()
 
-            # Require year to satisfy NOT NULL DB constraint
-            if year is None:
-                errors += 1
-                if first_error is None:
-                    first_error = f"Missing or invalid year for VIN {vin}"
-                continue
-
             vehicle = Vehicle(
                 vin=vin,
                 year=year,
@@ -370,12 +376,35 @@ async def upload_history(
             )
             db.add(vehicle)
             imported += 1
+
         except Exception as e:
             errors += 1
             if first_error is None:
-                first_error = f"DB error: {e}"
+                first_error = f"Row error: {e}"
 
-    db.commit()
+    # Commit with safety net so we DON'T throw raw 500s
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        return templates.TemplateResponse(
+            "upload_history.html",
+            {
+                "request": request,
+                "message": None,
+                "error": f"Database constraint error while saving rows: {e}",
+            },
+        )
+    except Exception as e:
+        db.rollback()
+        return templates.TemplateResponse(
+            "upload_history.html",
+            {
+                "request": request,
+                "message": None,
+                "error": f"Unexpected database error: {e}",
+            },
+        )
 
     msg = f"Imported {imported} rows from {file.filename}. {errors} row(s) had errors and were skipped."
     if first_error:
