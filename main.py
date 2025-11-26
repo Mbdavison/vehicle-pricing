@@ -1,12 +1,15 @@
 from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, Response
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from starlette.middleware.sessions import SessionMiddleware
+
 import pandas as pd
 import io
 import csv
+import os
 
 from database import SessionLocal, engine, Base
 from models import Vehicle
@@ -14,37 +17,18 @@ from models import Vehicle
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# ======================================================================
-#                            STARTUP / DB
-# ======================================================================
+# ---------- Session middleware for login ----------
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get("SESSION_SECRET_KEY", "change-this-session-secret"),
+)
 
-@app.on_event("startup")
-def startup_event():
-    """Create tables on app startup (works on Render and locally)."""
-    Base.metadata.create_all(bind=engine)
-
-
-def get_db():
-    """SQLAlchemy session dependency."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# ======================================================================
-#                            GLOBAL STATE
-# ======================================================================
-
-# In-memory cache for pricing results and the last set of vehicles priced
+# ---------- In-memory cache for pricing ----------
 last_pricing_results: list[dict] = []
 last_pricing_input_rows: list[dict] = []
 
 
-# ======================================================================
-#                              HELPERS
-# ======================================================================
+# ---------- Helpers ----------
 
 def clean_int(value):
     """Convert to int or return None if blank/NaN."""
@@ -94,6 +78,7 @@ def parse_title_for_year_make_model_and_status(title: str):
     elif "title" in t_lower:
         status = "Title"
 
+    # Strip leading "Title - " or similar
     cleaned = title
     if "-" in cleaned:
         parts = cleaned.split("-", 1)
@@ -126,7 +111,7 @@ def build_stats(
     min_mileage_val: int | None,
     max_mileage_val: int | None,
 ):
-    """Shared logic for stats (used by GET and POST /stats)."""
+    """Shared logic for computing stats and returning matching vehicles."""
     stats = None
     vehicles = []
 
@@ -170,14 +155,80 @@ def build_stats(
     return stats, vehicles
 
 
+def is_logged_in(request: Request) -> bool:
+    """Simple session flag check."""
+    return bool(request.session.get("logged_in"))
+
+
+# ---------- DB setup on startup ----------
+
+@app.on_event("startup")
+def startup_event():
+    Base.metadata.create_all(bind=engine)
+
+
+# ---------- DB session dependency ----------
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 # ======================================================================
-#                              ROUTES
+#                            AUTH ROUTES
+# ======================================================================
+
+@app.get("/login", response_class=HTMLResponse)
+def login_form(request: Request):
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "error": None,
+        },
+    )
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_submit(
+    request: Request,
+    password: str = Form(...),
+):
+    # Password from environment variable; default is "changeme" for local dev
+    expected = os.environ.get("APP_PASSWORD", "changeme")
+    if password == expected:
+        request.session["logged_in"] = True
+        return RedirectResponse(url="/", status_code=302)
+
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "error": "Invalid password.",
+        },
+    )
+
+
+@app.get("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=302)
+
+
+# ======================================================================
+#                            ROUTES
 # ======================================================================
 
 # ---------- Home ----------
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, db: Session = Depends(get_db)):
+    if not is_logged_in(request):
+        return RedirectResponse(url="/login", status_code=302)
+
     total_vehicles = db.query(Vehicle).count()
     distinct_years = db.query(func.count(func.distinct(Vehicle.year))).scalar()
     distinct_makes = db.query(func.count(func.distinct(Vehicle.make))).scalar()
@@ -205,9 +256,10 @@ async def upload_history(
     company: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
-    # -------------------------------------------------------
+    if not is_logged_in(request):
+        return RedirectResponse(url="/login", status_code=302)
+
     # GET: just show the form
-    # -------------------------------------------------------
     if request.method == "GET":
         return templates.TemplateResponse(
             "upload_history.html",
@@ -218,9 +270,7 @@ async def upload_history(
             },
         )
 
-    # -------------------------------------------------------
     # POST: process upload
-    # -------------------------------------------------------
     if not file or not file.filename:
         return templates.TemplateResponse(
             "upload_history.html",
@@ -265,7 +315,7 @@ async def upload_history(
                     first_error = "Missing VIN"
                 continue
 
-            # 🚫 NEW: skip if this VIN already exists in DB
+            # Skip if this VIN already exists (unique index)
             existing = db.query(Vehicle).filter(Vehicle.vin == vin).first()
             if existing:
                 errors += 1
@@ -437,6 +487,9 @@ def view_history(
     company: str | None = None,
     db: Session = Depends(get_db),
 ):
+    if not is_logged_in(request):
+        return RedirectResponse(url="/login", status_code=302)
+
     query = db.query(Vehicle)
 
     if state:
@@ -446,6 +499,7 @@ def view_history(
 
     vehicles = query.order_by(Vehicle.id.desc()).limit(1000).all()
 
+    # For filter dropdowns, get distinct states/companies
     states = [s[0] for s in db.query(Vehicle.state).distinct().all() if s[0]]
     companies = [c[0] for c in db.query(Vehicle.company).distinct().all() if c[0]]
 
@@ -462,7 +516,7 @@ def view_history(
     )
 
 
-# ---------- Stats (GET via query params) ----------
+# ---------- Historical stats ----------
 
 @app.get("/stats", response_class=HTMLResponse)
 def stats_page(
@@ -476,6 +530,9 @@ def stats_page(
     max_mileage: int | None = None,
     db: Session = Depends(get_db),
 ):
+    if not is_logged_in(request):
+        return RedirectResponse(url="/login", status_code=302)
+
     stats, vehicles = build_stats(
         db=db,
         year=year,
@@ -487,6 +544,7 @@ def stats_page(
         max_mileage_val=max_mileage,
     )
 
+    # Distinct states/companies for filters
     states = [s[0] for s in db.query(Vehicle.state).distinct().all() if s[0]]
     companies = [c[0] for c in db.query(Vehicle.company).distinct().all() if c[0]]
 
@@ -509,8 +567,6 @@ def stats_page(
     )
 
 
-# ---------- Stats (POST from HTML form) ----------
-
 @app.post("/stats", response_class=HTMLResponse)
 async def stats_page_post(
     request: Request,
@@ -523,6 +579,9 @@ async def stats_page_post(
     max_mileage: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
+    if not is_logged_in(request):
+        return RedirectResponse(url="/login", status_code=302)
+
     year_val = clean_int(year) if year not in (None, "") else None
     min_mileage_val = clean_int(min_mileage) if min_mileage not in (None, "") else None
     max_mileage_val = clean_int(max_mileage) if max_mileage not in (None, "") else None
@@ -569,6 +628,9 @@ async def stats_page_post(
 
 @app.get("/price-vehicles", response_class=HTMLResponse)
 def price_vehicles_form(request: Request):
+    if not is_logged_in(request):
+        return RedirectResponse(url="/login", status_code=302)
+
     return templates.TemplateResponse(
         "price_vehicles.html",
         {
@@ -591,7 +653,7 @@ async def price_vehicles(
     file: UploadFile | None = File(None),
     margin: float = Form(20.0),
     expenses: float = Form(0.0),
-    # Optional filters for comps
+    # Optional filters for comps (strings are fine)
     state: str | None = Form(None),
     company: str | None = Form(None),
     min_mileage: str | None = Form(None),
@@ -603,6 +665,9 @@ async def price_vehicles(
     manual_mileage: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
+    if not is_logged_in(request):
+        return RedirectResponse(url="/login", status_code=302)
+
     """
     Price vehicles based on historical comps in the Vehicle table.
     - Can take a file of vehicles OR a single manually-entered vehicle.
@@ -610,11 +675,11 @@ async def price_vehicles(
     """
     global last_pricing_results, last_pricing_input_rows
 
-    # Normalize text filters
+    # Normalize text filters (strip whitespace, treat empty as None)
     state = state.strip() or None if state else None
     company = company.strip() or None if company else None
 
-    # Convert mileage inputs from strings to ints
+    # Convert mileage inputs from strings to ints (or None if blank)
     min_mileage_val = clean_int(min_mileage) if min_mileage not in (None, "") else None
     max_mileage_val = clean_int(max_mileage) if max_mileage not in (None, "") else None
     manual_mileage_val = (
@@ -623,7 +688,7 @@ async def price_vehicles(
 
     purchase_rows: list[dict] = []
 
-    # 1) New file upload
+    # 1) If a new file is uploaded, parse it and REPLACE last input rows
     if file and file.filename:
         content = await file.read()
         try:
@@ -658,7 +723,7 @@ async def price_vehicles(
                 row.get("Mileage") or row.get("mileage") or row.get("Odometer")
             )
 
-            # Require year/make/model
+            # Require year/make/model to identify a vehicle
             if not (year and make and model):
                 continue
 
@@ -674,7 +739,7 @@ async def price_vehicles(
 
         last_pricing_input_rows = purchase_rows
 
-    # 2) Manual single vehicle
+    # 2) No file, but manual single vehicle was entered
     elif manual_year and manual_make and manual_model:
         purchase_rows.append(
             {
@@ -687,10 +752,11 @@ async def price_vehicles(
         )
         last_pricing_input_rows = purchase_rows
 
-    # 3) Re-use last input rows
+    # 3) Neither file nor manual input: re-use last input rows (recalc)
     else:
         purchase_rows = last_pricing_input_rows or []
 
+    # If after all of that we still have nothing to price, show an error
     if not purchase_rows:
         return templates.TemplateResponse(
             "price_vehicles.html",
@@ -716,12 +782,14 @@ async def price_vehicles(
         model = row["model"]
         mileage = row["mileage"]
 
+        # Base query: year + make + model
         query = db.query(Vehicle).filter(
             Vehicle.year == year,
             Vehicle.make.ilike(f"%{make}%"),
             Vehicle.model.ilike(f"%{model}%"),
         )
 
+        # Optional filters on comps
         if state:
             query = query.filter(Vehicle.state == state)
         if company:
@@ -785,7 +853,10 @@ async def price_vehicles(
 # ---------- Export pricing results as CSV ----------
 
 @app.get("/export-pricing-csv")
-def export_pricing_csv():
+def export_pricing_csv(request: Request):
+    if not is_logged_in(request):
+        return RedirectResponse(url="/login", status_code=302)
+
     if not last_pricing_results:
         return Response(
             "No pricing results to export.", media_type="text/plain"
@@ -794,6 +865,7 @@ def export_pricing_csv():
     output = io.StringIO()
     writer = csv.writer(output)
 
+    # Header row (includes mileage)
     writer.writerow(
         [
             "VIN",
