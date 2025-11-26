@@ -135,18 +135,6 @@ def home(request: Request, db: Session = Depends(get_db)):
 
 # ---------- Upload historical data ----------
 
-@app.get("/upload-history", response_class=HTMLResponse)
-def upload_history_form(request: Request):
-    return templates.TemplateResponse(
-        "upload_history.html",
-        {
-            "request": request,
-            "message": None,
-            "error": None,
-        },
-    )
-
-
 @app.post("/upload-history", response_class=HTMLResponse)
 async def upload_history(
     request: Request,
@@ -208,12 +196,20 @@ async def upload_history(
                 if pstatus:
                     title_status = pstatus
 
+            # If still nothing for title_status, maybe Title has 'Parts Only' etc.
             if not title_status and title_val:
                 t_lower = str(title_val).lower()
                 if "parts" in t_lower:
                     title_status = "Parts Only"
                 elif "title" in t_lower:
                     title_status = "Title"
+
+            # 🚨 Enforce YEAR is present (DB requires NOT NULL)
+            if year is None:
+                errors += 1
+                if first_error is None:
+                    first_error = "Missing Year"
+                continue
 
             sale_price = clean_float(
                 row.get("Price")
@@ -290,12 +286,25 @@ async def upload_history(
             )
             db.add(vehicle)
             imported += 1
+
         except Exception as e:
             errors += 1
             if first_error is None:
-                first_error = f"DB error: {e}"
+                first_error = f"Row error: {e}"
 
-    db.commit()
+    # Commit with safety net for constraint errors
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        return templates.TemplateResponse(
+            "upload_history.html",
+            {
+                "request": request,
+                "message": None,
+                "error": f"Database error while saving rows: {e}",
+            },
+        )
 
     msg = f"Imported {imported} rows from {file.filename}. {errors} row(s) had errors and were skipped."
     if first_error:
