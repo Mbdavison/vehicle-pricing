@@ -265,6 +265,14 @@ async def upload_history(
                     first_error = "Missing VIN"
                 continue
 
+            # 🚫 NEW: skip if this VIN already exists in DB
+            existing = db.query(Vehicle).filter(Vehicle.vin == vin).first()
+            if existing:
+                errors += 1
+                if first_error is None:
+                    first_error = f"Duplicate VIN skipped: {vin}"
+                continue
+
             # Try to get year/make/model directly or from "Title"
             title_val = row.get("Title") or row.get("title") or ""
             year = clean_int(row.get("Year") or row.get("year"))
