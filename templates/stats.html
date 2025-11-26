@@ -1,47 +1,129 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Historical Stats</title>
-</head>
-<body>
-    <h1>View Historical Stats</h1>
+{% extends "base.html" %}
 
-    <form action="/stats" method="get">
-        <label>Year:
-            <input type="number" name="year" required>
-        </label>
-        <br><br>
+{% block content %}
+<h2>Historical Stats</h2>
+<p class="small">
+    Enter year/make/model and optional filters to see average, high, and low sale prices from your history.
+</p>
 
-        <label>Make:
-            <input type="text" name="make" required>
-        </label>
-        <br><br>
+<form method="post" action="/stats" class="mt-2">
+    <div class="flex gap-4 flex-wrap">
+        <div class="w-1-2">
+            <div class="field">
+                <label for="year">Year</label>
+                <input type="number" id="year" name="year" value="{{ year if year is not none else '' }}">
+            </div>
+            <div class="field">
+                <label for="make">Make</label>
+                <input type="text" id="make" name="make" value="{{ make or '' }}">
+            </div>
+            <div class="field">
+                <label for="model">Model</label>
+                <input type="text" id="model" name="model" value="{{ model or '' }}">
+            </div>
+        </div>
 
-        <label>Model:
-            <input type="text" name="model" required>
-        </label>
-        <br><br>
+        <div class="w-1-2">
+            <div class="field">
+                <label for="state">State</label>
+                <select id="state" name="state">
+                    <option value="">All</option>
+                    {% for s in states %}
+                        <option value="{{ s }}" {% if selected_state == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label for="company">Company</label>
+                <select id="company" name="company">
+                    <option value="">All</option>
+                    {% for c in companies %}
+                        <option value="{{ c }}" {% if selected_company == c %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <div class="field" style="flex:1;">
+                    <label for="min_mileage">Min Mileage</label>
+                    <input type="number" id="min_mileage" name="min_mileage"
+                           value="{{ min_mileage if min_mileage is not none else '' }}">
+                </div>
+                <div class="field" style="flex:1;">
+                    <label for="max_mileage">Max Mileage</label>
+                    <input type="number" id="max_mileage" name="max_mileage"
+                           value="{{ max_mileage if max_mileage is not none else '' }}">
+                </div>
+            </div>
+        </div>
+    </div>
 
-        <button type="submit">Get Stats</button>
-    </form>
+    <div class="mt-3">
+        <button type="submit">Run Stats</button>
+    </div>
+</form>
 
-    <hr>
+{% if stats %}
+<div class="mt-4">
+    <h3>Summary</h3>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Count</div>
+            <div class="stat-value">{{ stats.count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Average Price</div>
+            <div class="stat-value">
+                ${{ "%.2f"|format(stats.avg_price) }}
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">High Price</div>
+            <div class="stat-value">
+                ${{ "%.2f"|format(stats.high_price) }}
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Low Price</div>
+            <div class="stat-value">
+                ${{ "%.2f"|format(stats.low_price) }}
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<p class="mt-3 small">No matching sales found for the selected filters.</p>
+{% endif %}
 
-    {% if message %}
-        <p><strong>{{ message }}</strong></p>
-    {% endif %}
-
-    {% if stats %}
-        <h2>Results for {{ stats.year }} {{ stats.make }} {{ stats.model }}</h2>
-        <ul>
-            <li>Average Sale Price: {{ stats.avg_price }}</li>
-            <li>Lowest Sale Price: {{ stats.min_price }}</li>
-            <li>Highest Sale Price: {{ stats.max_price }}</li>
-            <li>Number of Sales: {{ stats.count }}</li>
-        </ul>
-    {% endif %}
-
-    <p><a href="/">Back to Home</a></p>
-</body>
-</html>
+{% if vehicles %}
+<h3 class="mt-4">Matching Vehicles</h3>
+<table>
+    <thead>
+    <tr>
+        <th>VIN</th>
+        <th>Year</th>
+        <th>Make</th>
+        <th>Model</th>
+        <th>Mileage</th>
+        <th>Sale Price</th>
+        <th>State</th>
+        <th>Company</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for v in vehicles %}
+    <tr>
+        <td>{{ v.vin }}</td>
+        <td>{{ v.year }}</td>
+        <td>{{ v.make }}</td>
+        <td>{{ v.model }}</td>
+        <td>{{ v.mileage }}</td>
+        <td>{{ "%.2f"|format(v.sale_price) if v.sale_price is not none else "" }}</td>
+        <td>{{ v.state }}</td>
+        <td>{{ v.company }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}
 

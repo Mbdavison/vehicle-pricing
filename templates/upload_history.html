@@ -1,26 +1,49 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Upload Vehicle History</title>
-</head>
-<body>
-    <h1>Upload Vehicle Sales History</h1>
+{% extends "base.html" %}
 
-    <p>CSV must have at least these column names: <b>year, make, model, sale_price</b>.</p>
-    <p>Optional columns: <b>mileage, has_keys, runs, drives, sale_date, title_status, source_file</b></p>
+{% block content %}
+<h2>Upload Historical Sales</h2>
+<p class="small">
+    Upload a CSV or Excel file of sold vehicles. The system will skip rows with missing VIN or missing year.
+</p>
 
-    {% if message %}
-        <p><strong>{{ message }}</strong></p>
-    {% endif %}
+{% if message %}
+<div class="flash-message flash-success">
+    {{ message }}
+</div>
+{% endif %}
 
-    <form action="/upload-history" method="post" enctype="multipart/form-data">
-        <label for="file">Select CSV file:</label>
-        <input type="file" name="file" accept=".csv" required>
-        <br><br>
-        <button type="submit">Upload & Import</button>
-    </form>
+{% if error %}
+<div class="flash-message flash-error">
+    {{ error }}
+</div>
+{% endif %}
 
-    <p><a href="/">Back to Home</a></p>
-</body>
-</html>
+<form method="post" action="/upload-history" enctype="multipart/form-data">
+    <div class="field">
+        <label for="file">File (CSV or Excel)</label>
+        <input type="file" id="file" name="file" required>
+    </div>
+
+    <div class="field">
+        <label for="state">Default State (optional)</label>
+        <input type="text" id="state" name="state" placeholder="e.g. Colorado">
+    </div>
+
+    <div class="field">
+        <label for="company">Default Company (optional)</label>
+        <input type="text" id="company" name="company" placeholder="e.g. Donated">
+    </div>
+
+    <button type="submit">Upload</button>
+</form>
+
+<div class="mt-4 small">
+    Notes:
+    <ul>
+        <li>VIN and Year are required (rows without them are skipped).</li>
+        <li>If your file has columns like <code>Title</code>, the tool will try to infer year/make/model from it.</li>
+        <li>State and Company can be taken from the file or from the fields above.</li>
+    </ul>
+</div>
+{% endblock %}
 
