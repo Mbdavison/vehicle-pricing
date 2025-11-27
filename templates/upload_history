@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Upload History · Peak Auto Auctions{% endblock %}
+
+{% block content %}
+<div class="peak-card">
+    <div class="peak-card-header">
+        <div class="peak-card-title">Upload Sales History</div>
+        <div class="text-muted small">
+            Import CSV or Excel files with VIN, Year, Make, Model, Mileage, Price, etc.
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger py-2">
+            {{ error }}
+        </div>
+    {% endif %}
+    {% if message %}
+        <div class="alert alert-success py-2">
+            {{ message }}
+        </div>
+    {% endif %}
+
+    <form method="post" action="/upload-history" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="file" class="form-label">History File (CSV or Excel)</label>
+            <input type="file" class="form-control" id="file" name="file" required>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="state" class="form-label">Default State (optional)</label>
+                <input type="text" class="form-control" id="state" name="state" placeholder="CO">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="company" class="form-label">Default Seller/Company (optional)</label>
+                <input type="text" class="form-control" id="company" name="company" placeholder="Donated, Tow Co, etc.">
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Upload &amp; Import
+        </button>
+    </form>
+</div>
+
+<div class="peak-card">
+    <div class="peak-card-header">
+        <div class="peak-card-title">File Format Tips</div>
+    </div>
+    <ul class="small mb-0">
+        <li>VIN is required for each row; rows without a VIN are skipped.</li>
+        <li>Year must be valid; rows with missing/invalid year are skipped.</li>
+        <li>Duplicate VINs already in the database are skipped (no duplicates).</li>
+        <li>Optional columns: Title, Mileage/Odometer, Keys, Run, Drive, Price, State, Company.</li>
+    </ul>
+</div>
+{% endblock %}
+
