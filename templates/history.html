@@ -1,74 +1,90 @@
 {% extends "base.html" %}
 
-{% block content %}
-<h2>Historical Vehicles</h2>
-<p class="small">Filter by state and company to see the most recent 1000 records.</p>
+{% block title %}Sales History · Peak Auto Auctions{% endblock %}
 
-<form method="get" action="/history" class="mt-2">
-    <div class="flex gap-4 flex-wrap">
-        <div class="w-1-2">
-            <label for="state">State</label>
-            <select id="state" name="state">
+{% block content %}
+<div class="peak-card mb-3">
+    <div class="peak-card-header">
+        <div class="peak-card-title">Sales History</div>
+        <div class="text-muted small">
+            Showing most recent records (max 1000). Filter by state or company.
+        </div>
+    </div>
+
+    <form method="get" action="/history" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="state" class="form-label">State</label>
+            <select id="state" name="state" class="form-select">
                 <option value="">All</option>
                 {% for s in states %}
-                    <option value="{{ s }}" {% if selected_state == s %}selected{% endif %}>{{ s }}</option>
+                    <option value="{{ s }}" {% if selected_state == s %}selected{% endif %}>
+                        {{ s }}
+                    </option>
                 {% endfor %}
             </select>
         </div>
 
-        <div class="w-1-2">
-            <label for="company">Company</label>
-            <select id="company" name="company">
+        <div class="col-md-3">
+            <label for="company" class="form-label">Company</label>
+            <select id="company" name="company" class="form-select">
                 <option value="">All</option>
                 {% for c in companies %}
-                    <option value="{{ c }}" {% if selected_company == c %}selected{% endif %}>{{ c }}</option>
+                    <option value="{{ c }}" {% if selected_company == c %}selected{% endif %}>
+                        {{ c }}
+                    </option>
                 {% endfor %}
             </select>
         </div>
+
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary">
+                Apply Filters
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="peak-card">
+    <div class="peak-card-header d-flex justify-content-between align-items-center">
+        <div class="peak-card-title">Recent Vehicles ({{ vehicles|length }})</div>
     </div>
 
-    <div class="mt-3">
-        <button type="submit">Apply Filters</button>
+    <div class="table-responsive">
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>VIN</th>
+                    <th>Year</th>
+                    <th>Make</th>
+                    <th>Model</th>
+                    <th>Mileage</th>
+                    <th>Price</th>
+                    <th>Title</th>
+                    <th>State</th>
+                    <th>Company</th>
+                    <th>Source File</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in vehicles %}
+                    <tr>
+                        <td>{{ v.id }}</td>
+                        <td>{{ v.vin }}</td>
+                        <td>{{ v.year }}</td>
+                        <td>{{ v.make }}</td>
+                        <td>{{ v.model }}</td>
+                        <td>{{ v.mileage or "" }}</td>
+                        <td>{{ v.sale_price or "" }}</td>
+                        <td>{{ v.title_status or "" }}</td>
+                        <td>{{ v.state or "" }}</td>
+                        <td>{{ v.company or "" }}</td>
+                        <td>{{ v.source_file or "" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-</form>
-
-{% if vehicles %}
-<table class="mt-4">
-    <thead>
-    <tr>
-        <th>ID</th>
-        <th>VIN</th>
-        <th>Year</th>
-        <th>Make</th>
-        <th>Model</th>
-        <th>Mileage</th>
-        <th>Sale Price</th>
-        <th>Title Status</th>
-        <th>State</th>
-        <th>Company</th>
-        <th>Source File</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for v in vehicles %}
-    <tr>
-        <td>{{ v.id }}</td>
-        <td>{{ v.vin }}</td>
-        <td>{{ v.year }}</td>
-        <td>{{ v.make }}</td>
-        <td>{{ v.model }}</td>
-        <td>{{ v.mileage }}</td>
-        <td>{{ "%.2f"|format(v.sale_price) if v.sale_price is not none else "" }}</td>
-        <td>{{ v.title_status }}</td>
-        <td>{{ v.state }}</td>
-        <td>{{ v.company }}</td>
-        <td>{{ v.source_file }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p class="mt-3 small">No vehicles found for the selected filters.</p>
-{% endif %}
+</div>
 {% endblock %}
 

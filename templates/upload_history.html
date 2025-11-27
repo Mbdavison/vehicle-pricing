@@ -1,48 +1,59 @@
 {% extends "base.html" %}
 
+{% block title %}Upload History · Peak Auto Auctions{% endblock %}
+
 {% block content %}
-<h2>Upload Historical Sales</h2>
-<p class="small">
-    Upload a CSV or Excel file of sold vehicles. The system will skip rows with missing VIN or missing year.
-</p>
+<div class="peak-card">
+    <div class="peak-card-header">
+        <div class="peak-card-title">Upload Sales History</div>
+        <div class="text-muted small">
+            Import CSV or Excel files with VIN, Year, Make, Model, Mileage, Price, etc.
+        </div>
+    </div>
 
-{% if message %}
-<div class="flash-message flash-success">
-    {{ message }}
+    {% if error %}
+        <div class="alert alert-danger py-2">
+            {{ error }}
+        </div>
+    {% endif %}
+    {% if message %}
+        <div class="alert alert-success py-2">
+            {{ message }}
+        </div>
+    {% endif %}
+
+    <form method="post" action="/upload-history" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="file" class="form-label">History File (CSV or Excel)</label>
+            <input type="file" class="form-control" id="file" name="file" required>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="state" class="form-label">Default State (optional)</label>
+                <input type="text" class="form-control" id="state" name="state" placeholder="CO">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="company" class="form-label">Default Seller/Company (optional)</label>
+                <input type="text" class="form-control" id="company" name="company" placeholder="Donated, Tow Co, etc.">
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Upload &amp; Import
+        </button>
+    </form>
 </div>
-{% endif %}
 
-{% if error %}
-<div class="flash-message flash-error">
-    {{ error }}
-</div>
-{% endif %}
-
-<form method="post" action="/upload-history" enctype="multipart/form-data">
-    <div class="field">
-        <label for="file">File (CSV or Excel)</label>
-        <input type="file" id="file" name="file" required>
+<div class="peak-card">
+    <div class="peak-card-header">
+        <div class="peak-card-title">File Format Tips</div>
     </div>
-
-    <div class="field">
-        <label for="state">Default State (optional)</label>
-        <input type="text" id="state" name="state" placeholder="e.g. Colorado">
-    </div>
-
-    <div class="field">
-        <label for="company">Default Company (optional)</label>
-        <input type="text" id="company" name="company" placeholder="e.g. Donated">
-    </div>
-
-    <button type="submit">Upload</button>
-</form>
-
-<div class="mt-4 small">
-    Notes:
-    <ul>
-        <li>VIN and Year are required (rows without them are skipped).</li>
-        <li>If your file has columns like <code>Title</code>, the tool will try to infer year/make/model from it.</li>
-        <li>State and Company can be taken from the file or from the fields above.</li>
+    <ul class="small mb-0">
+        <li>VIN is required for each row; rows without a VIN are skipped.</li>
+        <li>Year must be valid; rows with missing/invalid year are skipped.</li>
+        <li>Duplicate VINs already in the database are skipped (no duplicates).</li>
+        <li>Optional columns: Title, Mileage/Odometer, Keys, Run, Drive, Price, State, Company.</li>
     </ul>
 </div>
 {% endblock %}

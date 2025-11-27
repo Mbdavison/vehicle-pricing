@@ -1,160 +1,142 @@
 {% extends "base.html" %}
 
+{% block title %}Price Vehicles · Peak Auto Auctions{% endblock %}
+
 {% block content %}
-<h2>Price Vehicles for Purchase</h2>
-<p class="small">
-    Upload a list of vehicles or enter a single vehicle manually, then calculate recommended offers based on your historical sales.
-</p>
+<div class="peak-card mb-3">
+    <div class="peak-card-header">
+        <div class="peak-card-title">Price Vehicles for Purchase</div>
+        <div class="text-muted small">
+            Upload a list of vehicles or price a single unit using historical comps in your database.
+        </div>
+    </div>
 
-{% if error %}
-<div class="flash-message flash-error">
-    {{ error }}
+    {% if error %}
+        <div class="alert alert-danger py-2">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="post" action="/price-vehicles" enctype="multipart/form-data">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <h6>Upload Vehicles File</h6>
+                <div class="mb-3">
+                    <label for="file" class="form-label">File (CSV or Excel)</label>
+                    <input type="file" class="form-control" id="file" name="file">
+                    <div class="form-text">Expected columns: VIN, Year, Make, Model, Mileage/Odometer.</div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <h6>Or Enter a Single Vehicle</h6>
+                <div class="mb-2">
+                    <label class="form-label" for="manual_year">Year</label>
+                    <input type="number" class="form-control" id="manual_year" name="manual_year" placeholder="2015">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="manual_make">Make</label>
+                    <input type="text" class="form-control" id="manual_make" name="manual_make" placeholder="Toyota">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="manual_model">Model</label>
+                    <input type="text" class="form-control" id="manual_model" name="manual_model" placeholder="Camry">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="manual_mileage">Mileage (optional)</label>
+                    <input type="text" class="form-control" id="manual_mileage" name="manual_mileage" placeholder="123456">
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-3">
+
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label" for="margin">Desired Margin (%)</label>
+                <input type="number" step="0.1" class="form-control" id="margin" name="margin"
+                       value="{{ margin }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="expenses">Expected Expenses ($)</label>
+                <input type="number" step="0.01" class="form-control" id="expenses" name="expenses"
+                       value="{{ expenses }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="state">Filter Comps by State (optional)</label>
+                <input type="text" class="form-control" id="state" name="state" value="{{ state or '' }}" placeholder="CO">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="company">Filter Comps by Company (optional)</label>
+                <input type="text" class="form-control" id="company" name="company" value="{{ company or '' }}" placeholder="Donated">
+            </div>
+        </div>
+
+        <div class="row g-3 mt-2">
+            <div class="col-md-3">
+                <label class="form-label" for="min_mileage">Comps Min Mileage</label>
+                <input type="text" class="form-control" id="min_mileage" name="min_mileage" value="{{ min_mileage or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="max_mileage">Comps Max Mileage</label>
+                <input type="text" class="form-control" id="max_mileage" name="max_mileage" value="{{ max_mileage or '' }}">
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary">
+                Calculate Recommended Prices
+            </button>
+        </div>
+    </form>
 </div>
-{% endif %}
-
-<form method="post" action="/price-vehicles" enctype="multipart/form-data" class="mt-2">
-    <div class="flex gap-4 flex-wrap">
-        <div class="w-1-2">
-            <h3 style="margin-top:0;">Option 1: Upload File</h3>
-            <div class="field">
-                <label for="file">Pricing File (CSV or Excel)</label>
-                <input type="file" id="file" name="file">
-            </div>
-            <p class="small">
-                File should contain columns like VIN, Year, Make, Model, Mileage.
-            </p>
-        </div>
-
-        <div class="w-1-2">
-            <h3 style="margin-top:0;">Option 2: Single Vehicle</h3>
-            <div class="field">
-                <label for="manual_year">Year</label>
-                <input type="number" id="manual_year" name="manual_year">
-            </div>
-            <div class="field">
-                <label for="manual_make">Make</label>
-                <input type="text" id="manual_make" name="manual_make">
-            </div>
-            <div class="field">
-                <label for="manual_model">Model</label>
-                <input type="text" id="manual_model" name="manual_model">
-            </div>
-            <div class="field">
-                <label for="manual_mileage">Mileage</label>
-                <input type="number" id="manual_mileage" name="manual_mileage">
-            </div>
-            <p class="small">
-                Leave the file empty if you’re pricing a single vehicle.
-            </p>
-        </div>
-    </div>
-
-    <hr class="mt-4" style="border:none;border-top:1px solid #e5e7eb;">
-
-    <div class="flex gap-4 flex-wrap mt-3">
-        <div class="w-1-2">
-            <div class="field">
-                <label for="margin">Target Profit Margin (%)</label>
-                <input type="number" step="0.1" id="margin" name="margin"
-                       value="{{ margin or 20.0 }}">
-            </div>
-            <div class="field">
-                <label for="expenses">Expected Expenses ($)</label>
-                <input type="number" step="0.01" id="expenses" name="expenses"
-                       value="{{ expenses or 0.0 }}">
-            </div>
-        </div>
-
-        <div class="w-1-2">
-            <div class="field">
-                <label for="state">Comps State Filter</label>
-                <input type="text" id="state" name="state" value="{{ state or '' }}" placeholder="Optional">
-            </div>
-            <div class="field">
-                <label for="company">Comps Company Filter</label>
-                <input type="text" id="company" name="company" value="{{ company or '' }}" placeholder="Optional">
-            </div>
-            <div class="flex gap-2">
-                <div class="field" style="flex:1;">
-                    <label for="min_mileage">Comps Min Mileage</label>
-                    <input type="number" id="min_mileage" name="min_mileage"
-                           value="{{ min_mileage if min_mileage is not none else '' }}">
-                </div>
-                <div class="field" style="flex:1;">
-                    <label for="max_mileage">Comps Max Mileage</label>
-                    <input type="number" id="max_mileage" name="max_mileage"
-                           value="{{ max_mileage if max_mileage is not none else '' }}">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="mt-3">
-        <button type="submit">Calculate Recommended Prices</button>
-    </div>
-</form>
 
 {% if results %}
-<div class="mt-4 flex justify-between" style="align-items:center;">
-    <h3 style="margin:0;">Pricing Results</h3>
-    <div class="text-right">
-        <a class="link" href="/export-pricing-csv">Download CSV</a><br>
-        <span class="small">Exports the current results.</span>
+<div class="peak-card">
+    <div class="peak-card-header d-flex justify-content-between align-items-center">
+        <div class="peak-card-title">Pricing Results</div>
+        <a href="/export-pricing-csv" class="btn btn-sm btn-outline-secondary">
+            Export as CSV
+        </a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>VIN</th>
+                    <th>Year</th>
+                    <th>Make</th>
+                    <th>Model</th>
+                    <th>Mileage</th>
+                    <th>Avg Sale</th>
+                    <th>High Sale</th>
+                    <th>Low Sale</th>
+                    <th>Target Price</th>
+                    <th>Max Offer</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in results %}
+                    <tr>
+                        <td>{{ r.vin }}</td>
+                        <td>{{ r.year }}</td>
+                        <td>{{ r.make }}</td>
+                        <td>{{ r.model }}</td>
+                        <td>{{ r.mileage or "" }}</td>
+                        <td>{{ "%.0f"|format(r.avg_price) if r.avg_price is not none else "" }}</td>
+                        <td>{{ "%.0f"|format(r.high_price) if r.high_price is not none else "" }}</td>
+                        <td>{{ "%.0f"|format(r.low_price) if r.low_price is not none else "" }}</td>
+                        <td>{{ "%.0f"|format(r.target_price) if r.target_price is not none else "" }}</td>
+                        <td class="fw-bold text-success">
+                            {{ "%.0f"|format(r.max_offer) if r.max_offer is not none else "" }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
-
-<table class="mt-2">
-    <thead>
-    <tr>
-        <th>VIN</th>
-        <th>Year</th>
-        <th>Make</th>
-        <th>Model</th>
-        <th>Mileage</th>
-        <th>Avg Sale Price</th>
-        <th>High Sale Price</th>
-        <th>Low Sale Price</th>
-        <th>Target Price</th>
-        <th>Max Offer</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for r in results %}
-    <tr>
-        <td>{{ r.vin }}</td>
-        <td>{{ r.year }}</td>
-        <td>{{ r.make }}</td>
-        <td>{{ r.model }}</td>
-        <td>{{ r.mileage }}</td>
-        <td>
-            {% if r.avg_price is not none %}
-                ${{ "%.2f"|format(r.avg_price) }}
-            {% endif %}
-        </td>
-        <td>
-            {% if r.high_price is not none %}
-                ${{ "%.2f"|format(r.high_price) }}
-            {% endif %}
-        </td>
-        <td>
-            {% if r.low_price is not none %}
-                ${{ "%.2f"|format(r.low_price) }}
-            {% endif %}
-        </td>
-        <td>
-            {% if r.target_price is not none %}
-                ${{ "%.2f"|format(r.target_price) }}
-            {% endif %}
-        </td>
-        <td>
-            {% if r.max_offer is not none %}
-                ${{ "%.2f"|format(r.max_offer) }}
-            {% endif %}
-        </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
 {% endif %}
 {% endblock %}
 

@@ -1,27 +1,48 @@
 {% extends "base.html" %}
 
+{% block title %}Sign In · Peak Auto Auctions{% endblock %}
+
 {% block content %}
-<h2>Sign in</h2>
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="peak-card">
+            <div class="text-center mb-3">
+                <img src="/static/peak-logo.png" alt="Peak Auto Auctions" style="max-width:260px; height:auto;">
+            </div>
+            <div class="peak-card-header">
+                <div class="peak-card-title">Sign In</div>
+                <div class="text-muted small">Vehicle Pricing &amp; Sales History Tool</div>
+            </div>
 
-{% if error %}
-  <div class="alert alert-danger" style="color: darkred; margin-bottom: 1rem;">
-    {{ error }}
-  </div>
-{% endif %}
+            {% if error %}
+                <div class="alert alert-danger py-2">
+                    {{ error }}
+                </div>
+            {% endif %}
 
-<form method="post" action="/login" style="max-width: 320px;">
-  <div class="form-group" style="margin-bottom: 1rem;">
-    <label for="password">Password</label>
-    <input
-      type="password"
-      id="password"
-      name="password"
-      required
-      class="form-control"
-      style="width: 100%; padding: 0.5rem;"
-    >
-  </div>
-  <button type="submit" class="btn btn-primary">Log In</button>
-</form>
+            <form method="post" action="/login">
+                <div class="mb-3">
+                    <label for="password" class="form-label">Access Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-control"
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    Log In
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-muted small mt-2">
+            Internal use only. Contact Peak management if you need access.
+        </p>
+    </div>
+</div>
 {% endblock %}
 

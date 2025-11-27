@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, UploadFile, File, Form, Depends, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -16,6 +17,9 @@ from models import Vehicle
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+
+# Serve static files (logo, CSS, etc.)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ---------- Session middleware for login ----------
 app.add_middleware(
@@ -211,6 +215,14 @@ async def login_submit(
         },
     )
 
+
+@app.get("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=302)
+
+from fastapi.responses import RedirectResponse
+# (you already have this import if you pasted the big version)
 
 @app.get("/logout")
 def logout(request: Request):

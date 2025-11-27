@@ -1,37 +1,50 @@
 {% extends "base.html" %}
 
-{% block content %}
-<h2>Dashboard</h2>
-<p class="small">Quick view of the historical data currently loaded.</p>
+{% block title %}Dashboard · Peak Auto Auctions{% endblock %}
 
-<div class="stats-grid mt-3">
-    <div class="stat-card">
-        <div class="stat-label">Total Vehicles</div>
-        <div class="stat-value">{{ vehicle_count or 0 }}</div>
+{% block content %}
+<div class="row g-3 mb-3">
+    <div class="col-md-3 col-sm-6">
+        <div class="peak-card">
+            <div class="text-muted small">Total Vehicles</div>
+            <div class="fs-3 fw-bold">{{ vehicle_count or 0 }}</div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Distinct Years</div>
-        <div class="stat-value">{{ year_count or 0 }}</div>
+    <div class="col-md-3 col-sm-6">
+        <div class="peak-card">
+            <div class="text-muted small">Distinct Years</div>
+            <div class="fs-3 fw-bold">{{ year_count or 0 }}</div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Distinct Makes</div>
-        <div class="stat-value">{{ make_count or 0 }}</div>
+    <div class="col-md-3 col-sm-6">
+        <div class="peak-card">
+            <div class="text-muted small">Distinct Makes</div>
+            <div class="fs-3 fw-bold">{{ make_count or 0 }}</div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Distinct Models</div>
-        <div class="stat-value">{{ model_count or 0 }}</div>
+    <div class="col-md-3 col-sm-6">
+        <div class="peak-card">
+            <div class="text-muted small">Distinct Models</div>
+            <div class="fs-3 fw-bold">{{ model_count or 0 }}</div>
+        </div>
     </div>
 </div>
 
-<div class="mt-4">
-    <p class="small">
-        Next steps:
-        <ul>
-            <li>Upload a CSV/Excel of sold vehicles on <a class="link" href="/upload-history">Upload History</a></li>
-            <li>Explore averages and ranges on <a class="link" href="/stats">Stats</a></li>
-            <li>Price new vehicles for purchase on <a class="link" href="/price-vehicles">Price Vehicles</a></li>
-        </ul>
-    </p>
+<div class="peak-card">
+    <div class="peak-card-header d-flex justify-content-between align-items-center">
+        <div class="peak-card-title">Quick Actions</div>
+    </div>
+    <div class="row gy-2">
+        <div class="col-md-4">
+            <a href="/price-vehicles" class="btn btn-primary w-100">Price Vehicles</a>
+        </div>
+        <div class="col-md-4">
+            <a href="/upload-history" class="btn btn-outline-primary w-100">Upload Sales History</a>
+        </div>
+        <div class="col-md-4">
+            <a href="/history" class="btn btn-outline-secondary w-100">View Recent Sales</a>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
